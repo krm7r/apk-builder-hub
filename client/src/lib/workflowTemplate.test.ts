@@ -14,6 +14,10 @@ describe("APK workflow template", () => {
     expect(workflow).toContain("app-release.apk");
     expect(workflow).toContain("chmod +x android/gradlew");
     expect(workflow).toContain("chmod +x ./gradlew");
+    expect(workflow).toContain("../../artifacts/app-unsigned.apk");
+    expect(workflow).toContain("../artifacts/app-unsigned.apk");
+    expect(workflow.match(/\.\.\/\.\.\/artifacts\/app-unsigned\.apk/g)).toHaveLength(2);
+    expect(workflow.match(/\.\.\/artifacts\/app-unsigned\.apk/g)).toHaveLength(4);
   });
 
   it("creates an isolated source path", () => {

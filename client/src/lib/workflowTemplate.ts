@@ -62,7 +62,7 @@ jobs:
           npx expo prebuild --platform android --non-interactive
           chmod +x android/gradlew
           cd android && ./gradlew assembleRelease
-          cp app/build/outputs/apk/release/*.apk ../artifacts/app-unsigned.apk
+          cp app/build/outputs/apk/release/*.apk ../../artifacts/app-unsigned.apk
 
       - name: Build React Native APK
         if: inputs.project_type == 'react-native'
@@ -71,7 +71,7 @@ jobs:
           npm ci
           chmod +x android/gradlew
           cd android && ./gradlew assembleRelease
-          cp app/build/outputs/apk/release/*.apk ../artifacts/app-unsigned.apk
+          cp app/build/outputs/apk/release/*.apk ../../artifacts/app-unsigned.apk
 
       - name: Set up Flutter
         if: inputs.project_type == 'flutter'
@@ -85,7 +85,7 @@ jobs:
         run: |
           flutter pub get
           flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk artifacts/app-unsigned.apk
+          cp build/app/outputs/flutter-apk/app-release.apk ../artifacts/app-unsigned.apk
 
       - name: Build Android Native APK
         if: inputs.project_type == 'android-native'
@@ -93,7 +93,7 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew assembleRelease
-          find . -path "*/build/outputs/apk/release/*.apk" -type f -exec cp {} artifacts/app-unsigned.apk \;
+          find . -path "*/build/outputs/apk/release/*.apk" -type f -exec cp {} ../artifacts/app-unsigned.apk \;
 
       - name: Sign APK for installation
         run: |
