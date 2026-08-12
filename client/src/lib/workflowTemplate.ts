@@ -60,6 +60,7 @@ jobs:
         run: |
           npm ci
           npx expo prebuild --platform android --non-interactive
+          chmod +x android/gradlew
           cd android && ./gradlew assembleRelease
           cp app/build/outputs/apk/release/*.apk ../artifacts/app-unsigned.apk
 
@@ -68,6 +69,7 @@ jobs:
         working-directory: workspace
         run: |
           npm ci
+          chmod +x android/gradlew
           cd android && ./gradlew assembleRelease
           cp app/build/outputs/apk/release/*.apk ../artifacts/app-unsigned.apk
 
@@ -89,6 +91,7 @@ jobs:
         if: inputs.project_type == 'android-native'
         working-directory: workspace
         run: |
+          chmod +x ./gradlew
           ./gradlew assembleRelease
           find . -path "*/build/outputs/apk/release/*.apk" -type f -exec cp {} artifacts/app-unsigned.apk \;
 

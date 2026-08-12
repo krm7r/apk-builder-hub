@@ -37,4 +37,12 @@ describe("prepareAndDispatchBuild", () => {
     expect(dispatch?.[1]).toMatchObject({ method: "POST" });
     expect(JSON.parse(dispatch?.[1]?.body as string)).toMatchObject({ ref: "main", inputs: { project_type: "expo" } });
   });
+
+  it("explains the contents permission required when GitHub rejects the source upload", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({ message: "Resource not accessible by personal access token" }, 403));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(prepareAndDispatchBuild("test-token", repo, { blob: new Blob(["source"]), kind: "expo" }))
+      .rejects.toThrow("Contents: Read and write");
+  });
 });

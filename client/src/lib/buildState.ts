@@ -19,6 +19,13 @@ export function buildFailureAdvice(run: GithubRun | null, rawLogs = "") {
     };
   }
 
+  if (/gradlew:\s*permission denied/i.test(rawLogs)) {
+    return {
+      title: "ملف Gradle غير قابل للتنفيذ",
+      detail: "فقد ملف gradlew صلاحية التنفيذ داخل الأرشيف. أعدنا تفعيلها تلقائيًا في Workflow؛ شغّل البناء من جديد. إن ظل الخطأ ظاهرًا، نفّذ chmod +x android/gradlew قبل ضغط مشروعك.",
+    };
+  }
+
   return {
     title: "لم يكتمل البناء",
     detail: "افتح سجل GitHub الكامل لتحديد الخطوة المتوقفة. الأسباب الأكثر شيوعًا هي غياب ملفات الاعتماد، أو تعارض Gradle/Java، أو إعداد Release مخصص داخل المشروع.",

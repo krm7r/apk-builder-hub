@@ -12,6 +12,8 @@ describe("APK workflow template", () => {
     expect(workflow).toContain("Sign APK for installation");
     expect(workflow).toContain("apksigner\" verify");
     expect(workflow).toContain("app-release.apk");
+    expect(workflow).toContain("chmod +x android/gradlew");
+    expect(workflow).toContain("chmod +x ./gradlew");
   });
 
   it("creates an isolated source path", () => {

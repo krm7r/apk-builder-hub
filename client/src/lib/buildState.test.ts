@@ -27,4 +27,11 @@ describe("buildState", () => {
       detail: expect.stringContaining("assets/images/android-icon-foreground.png"),
     });
   });
+
+  it("explains how to recover from a non-executable Gradle wrapper", () => {
+    expect(buildFailureAdvice(failedRun, "./gradlew: Permission denied")).toMatchObject({
+      title: "ملف Gradle غير قابل للتنفيذ",
+      detail: expect.stringContaining("chmod +x android/gradlew"),
+    });
+  });
 });

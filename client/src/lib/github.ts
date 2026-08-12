@@ -26,7 +26,17 @@ async function api<T>(token: string, path: string, init?: RequestInit): Promise<
   });
   if (!response.ok) {
     const detail = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(detail.message ?? `GitHub API error (${response.status})`);
+    const message = String(detail.message ?? response.statusText);
+    if (response.status === 401) {
+      throw new Error("رمز GitHub غير صالح أو انتهت صلاحيته. أنشئ رمز وصول جديدًا ثم أعد ربطه.");
+    }
+    if (response.status === 403 && path.includes("/contents/")) {
+      throw new Error("رفض GitHub رفع ملفات المشروع. عدّل رمز الوصول ليمنح هذا المستودع العام صلاحية Contents: Read and write، ثم أعد الربط.");
+    }
+    if (response.status === 403 && path.includes("/actions/")) {
+      throw new Error("رفض GitHub تشغيل أو قراءة مسار البناء. امنح رمز الوصول صلاحية Actions: Read and write لهذا المستودع، ثم أعد الربط.");
+    }
+    throw new Error(message || `GitHub API error (${response.status})`);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
