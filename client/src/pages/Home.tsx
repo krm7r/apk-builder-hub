@@ -14,6 +14,7 @@ import {
   type GithubArtifact, type GithubRepo, type GithubRun, type GithubStep,
 } from "@/lib/github";
 import { buildFailureAdvice, buildProgress } from "@/lib/buildState";
+import { addBuildToHistory, loadBuildHistory, persistBuildHistory, type StoredBuild } from "@/lib/buildHistory";
 import { detectProjectFromNames, projectLabel, type DetectionResult, type ProjectKind } from "@/lib/projectDetection";
 
 type PreparedProject = {
@@ -25,10 +26,8 @@ type PreparedProject = {
   detection: DetectionResult;
 };
 
-type StoredBuild = { run: GithubRun; repo: string; kind: ProjectKind; updatedAt: string };
 type ApkPreview = { name: string; size: number; url: string };
 
-const historyKey = "apk-builder.build-history";
 const formatSize = (bytes: number) => {
   if (!bytes) return "0 كيلوبايت";
   const units = ["بايت", "كيلوبايت", "ميغابايت", "غيغابايت"];
@@ -54,9 +53,7 @@ export default function Home() {
   const [artifacts, setArtifacts] = useState<GithubArtifact[]>([]);
   const [previews, setPreviews] = useState<Record<number, ApkPreview>>({});
   const [rawLogs, setRawLogs] = useState("");
-  const [history, setHistory] = useState<StoredBuild[]>(() => {
-    try { return JSON.parse(localStorage.getItem(historyKey) ?? "[]") as StoredBuild[]; } catch { return []; }
-  });
+  const [history, setHistory] = useState<StoredBuild[]>(loadBuildHistory);
 
   const selectedRepo = useMemo(() => repos.find((repo) => repo.full_name === repoName) ?? null, [repos, repoName]);
   const errorCard = buildFailureAdvice(activeRun, rawLogs);
@@ -65,8 +62,8 @@ export default function Home() {
 
   const persistHistory = (entry: StoredBuild) => {
     setHistory((current) => {
-      const next = [entry, ...current.filter((item) => item.run.id !== entry.run.id)].slice(0, 20);
-      localStorage.setItem(historyKey, JSON.stringify(next));
+      const next = addBuildToHistory(current, entry);
+      persistBuildHistory(next);
       return next;
     });
   };
@@ -156,8 +153,10 @@ export default function Home() {
     if (!project?.detection.kind || !selectedRepo || !token) return;
     setLoading(true); setError(""); setRawLogs(""); setArtifacts([]); setPreviews({});
     try {
-      await prepareAndDispatchBuild(token, selectedRepo, { blob: project.blob, kind: project.detection.kind });
-      window.setTimeout(() => void refreshRun(), 2200);
+      const run = await prepareAndDispatchBuild(token, selectedRepo, { blob: project.blob, kind: project.detection.kind });
+      setActiveRun(run);
+      persistHistory({ run, repo: selectedRepo.full_name, kind: project.detection.kind, updatedAt: new Date().toISOString() });
+      void refreshRun(run, selectedRepo);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "تعذر بدء البناء على GitHub."); }
     finally { setLoading(false); }
   };

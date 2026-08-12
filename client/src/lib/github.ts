@@ -87,16 +87,28 @@ async function waitForBuilderWorkflow(token: string, repo: GithubRepo) {
   throw new Error("تم رفع Workflow البناء، لكن GitHub لم يسجّله بعد. انتظر بضع ثوانٍ ثم أعد المحاولة.");
 }
 
+async function waitForDispatchedRun(token: string, repo: GithubRepo, notBefore: number) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const result = await api<{ workflow_runs: GithubRun[] }>(token, `/repos/${repo.full_name}/actions/runs?event=workflow_dispatch&per_page=20`);
+    const run = result.workflow_runs.find((item) => item.name === "Build Android APK" && Date.parse(item.created_at) >= notBefore - 5_000);
+    if (run) return run;
+    await delay(1250);
+  }
+  throw new Error("بدأ GitHub مسار البناء، لكنه لم يظهر بعد في قائمة التشغيلات. حدّث السجل بعد ثوانٍ.");
+}
+
 export async function prepareAndDispatchBuild(token: string, repo: GithubRepo, project: { blob: Blob; kind: ProjectKind }) {
   const timestamp = Date.now();
   const sourcePath = buildSourcePath(project.kind, timestamp);
   await commitFile(token, repo, sourcePath, project.blob, `build: upload ${project.kind} source`);
   await commitFile(token, repo, BUILDER_WORKFLOW_PATH, new Blob([buildWorkflowYaml()], { type: "text/yaml" }), "build: configure APK workflow");
   const workflowId = await waitForBuilderWorkflow(token, repo);
+  const dispatchedAt = Date.now();
   await api(token, `/repos/${repo.full_name}/actions/workflows/${workflowId}/dispatches`, {
     method: "POST",
     body: JSON.stringify({ ref: repo.default_branch, inputs: { project_type: project.kind, source_path: sourcePath } }),
   });
+  return waitForDispatchedRun(token, repo, dispatchedAt);
 }
 
 export async function listRuns(token: string, repo: GithubRepo) {

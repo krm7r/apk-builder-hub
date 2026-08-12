@@ -23,12 +23,14 @@ describe("prepareAndDispatchBuild", () => {
       .mockResolvedValueOnce(json({ sha: "existing-workflow" }))
       .mockResolvedValueOnce(json({}))
       .mockResolvedValueOnce(json({ workflows: [{ id: 99, path: BUILDER_WORKFLOW_PATH, state: "active" }] }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(json({ workflow_runs: [{ id: 123, status: "queued", conclusion: null, html_url: "https://github.com/example/run/123", created_at: new Date().toISOString(), updated_at: new Date().toISOString(), name: "Build Android APK" }] }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await prepareAndDispatchBuild("test-token", repo, { blob: new Blob(["source"]), kind: "expo" });
+    const run = await prepareAndDispatchBuild("test-token", repo, { blob: new Blob(["source"]), kind: "expo" });
 
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(run.id).toBe(123);
+    expect(fetchMock).toHaveBeenCalledTimes(7);
     const sourceUpload = fetchMock.mock.calls[1];
     expect(sourceUpload?.[0]).toMatch(/\/contents\/uploads\/expo-\d+\.zip$/);
     expect(sourceUpload?.[1]).toMatchObject({ method: "PUT" });
@@ -36,6 +38,7 @@ describe("prepareAndDispatchBuild", () => {
     expect(dispatch?.[0]).toBe("https://api.github.com/repos/example/apk-builder-hub/actions/workflows/99/dispatches");
     expect(dispatch?.[1]).toMatchObject({ method: "POST" });
     expect(JSON.parse(dispatch?.[1]?.body as string)).toMatchObject({ ref: "main", inputs: { project_type: "expo" } });
+    expect(fetchMock.mock.calls[6]?.[0]).toBe("https://api.github.com/repos/example/apk-builder-hub/actions/runs?event=workflow_dispatch&per_page=20");
   });
 
   it("explains the contents permission required when GitHub rejects the source upload", async () => {
