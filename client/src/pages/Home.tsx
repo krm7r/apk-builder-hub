@@ -59,7 +59,7 @@ export default function Home() {
   });
 
   const selectedRepo = useMemo(() => repos.find((repo) => repo.full_name === repoName) ?? null, [repos, repoName]);
-  const errorCard = buildFailureAdvice(activeRun);
+  const errorCard = buildFailureAdvice(activeRun, rawLogs);
   const completedSteps = steps.filter((step) => step.status === "completed").length;
   const progress = buildProgress(activeRun, steps);
 
@@ -117,6 +117,10 @@ export default function Home() {
     const timer = window.setInterval(() => void refreshRun(activeRun), 8000);
     return () => window.clearInterval(timer);
   }, [activeRun?.id, activeRun?.status, token, selectedRepo?.full_name]);
+
+  useEffect(() => {
+    if (activeRun?.conclusion === "failure" && !rawLogs && !logsLoading) void loadRawLogs();
+  }, [activeRun?.id, activeRun?.conclusion, rawLogs, logsLoading, token, selectedRepo?.full_name]);
 
   const prepareZip = async (file: File) => {
     setError("");

@@ -19,4 +19,12 @@ describe("buildState", () => {
     expect(buildFailureAdvice(pendingRun)).toBeNull();
     expect(buildFailureAdvice(failedRun)).toMatchObject({ title: "لم يكتمل البناء" });
   });
+
+  it("identifies a missing Expo asset and returns its configured path", () => {
+    const logs = "Error: ENOENT: no such file or directory, open './assets/images/android-icon-foreground.png'";
+    expect(buildFailureAdvice(failedRun, logs)).toMatchObject({
+      title: "ملف مطلوب في إعداد Expo غير موجود",
+      detail: expect.stringContaining("assets/images/android-icon-foreground.png"),
+    });
+  });
 });

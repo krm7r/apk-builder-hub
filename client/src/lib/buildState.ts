@@ -8,8 +8,17 @@ export function buildProgress(run: GithubRun | null, steps: GithubStep[]) {
   return Math.max(8, Math.round((completed / steps.length) * 100));
 }
 
-export function buildFailureAdvice(run: GithubRun | null) {
+export function buildFailureAdvice(run: GithubRun | null, rawLogs = "") {
   if (!run || run.conclusion !== "failure") return null;
+
+  const missingFile = rawLogs.match(/ENOENT: no such file or directory, open ['"]([^'"]+)['"]/i);
+  if (missingFile?.[1]) {
+    return {
+      title: "ملف مطلوب في إعداد Expo غير موجود",
+      detail: `يشير إعداد المشروع إلى ${missingFile[1]}، لكنه غير موجود داخل ZIP. أضف الملف إلى المسار نفسه أو حدّث قيمة icon / adaptiveIcon في app.json أو app.config.*، ثم ارفع الأرشيف من جديد.`,
+    };
+  }
+
   return {
     title: "لم يكتمل البناء",
     detail: "افتح سجل GitHub الكامل لتحديد الخطوة المتوقفة. الأسباب الأكثر شيوعًا هي غياب ملفات الاعتماد، أو تعارض Gradle/Java، أو إعداد Release مخصص داخل المشروع.",
