@@ -8,6 +8,7 @@ export type GithubRepo = { id: number; name: string; full_name: string; private:
 export type GithubRun = { id: number; status: string; conclusion: string | null; html_url: string; created_at: string; updated_at: string; name: string };
 export type GithubStep = { name: string; status: string; conclusion: string | null; number: number };
 export type GithubArtifact = { id: number; name: string; size_in_bytes: number; created_at: string; expired: boolean; archive_download_url: string };
+type GithubWorkflow = { id: number; path: string; state: string };
 
 function getHeaders(token: string, contentType?: string) {
   return {
@@ -49,10 +50,31 @@ export async function toBase64(blob: Blob) {
 }
 
 export async function commitFile(token: string, repo: GithubRepo, path: string, file: Blob, message: string) {
+  let sha: string | undefined;
+  try {
+    const existing = await api<{ sha: string }>(token, `/repos/${repo.full_name}/contents/${path}?ref=${repo.default_branch}`);
+    sha = existing.sha;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.toLowerCase().includes("not found")) throw error;
+  }
+
   return api(token, `/repos/${repo.full_name}/contents/${path}`, {
     method: "PUT",
-    body: JSON.stringify({ message, content: await toBase64(file), branch: repo.default_branch }),
+    body: JSON.stringify({ message, content: await toBase64(file), branch: repo.default_branch, ...(sha ? { sha } : {}) }),
   });
+}
+
+const delay = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+async function waitForBuilderWorkflow(token: string, repo: GithubRepo) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const result = await api<{ workflows: GithubWorkflow[] }>(token, `/repos/${repo.full_name}/actions/workflows?per_page=100`);
+    const workflow = result.workflows.find((item) => item.path === BUILDER_WORKFLOW_PATH && item.state === "active");
+    if (workflow) return workflow.id;
+    await delay(1250);
+  }
+
+  throw new Error("تم رفع Workflow البناء، لكن GitHub لم يسجّله بعد. انتظر بضع ثوانٍ ثم أعد المحاولة.");
 }
 
 export async function prepareAndDispatchBuild(token: string, repo: GithubRepo, project: { blob: Blob; kind: ProjectKind }) {
@@ -60,7 +82,8 @@ export async function prepareAndDispatchBuild(token: string, repo: GithubRepo, p
   const sourcePath = buildSourcePath(project.kind, timestamp);
   await commitFile(token, repo, sourcePath, project.blob, `build: upload ${project.kind} source`);
   await commitFile(token, repo, BUILDER_WORKFLOW_PATH, new Blob([buildWorkflowYaml()], { type: "text/yaml" }), "build: configure APK workflow");
-  await api(token, `/repos/${repo.full_name}/actions/workflows/${encodeURIComponent(BUILDER_WORKFLOW_PATH)}/dispatches`, {
+  const workflowId = await waitForBuilderWorkflow(token, repo);
+  await api(token, `/repos/${repo.full_name}/actions/workflows/${workflowId}/dispatches`, {
     method: "POST",
     body: JSON.stringify({ ref: repo.default_branch, inputs: { project_type: project.kind, source_path: sourcePath } }),
   });
